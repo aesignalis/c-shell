@@ -11,11 +11,13 @@
 int mshell_cd(char **args);
 int mshell_help(char **args);
 int mshell_exit(char **args);
+int mshell_export(char **args);
 
 char *builtin_str[] = {
     "cd",
     "help",
-    "exit"
+    "exit",
+    "setenv"
 };
 
 /* frankly nonsensical C declaration of a function that is also named as an array of function pointers.
@@ -23,7 +25,8 @@ wowie... */
 int (*builtin_func[]) (char **) = {
     &mshell_cd,
     &mshell_help,
-    &mshell_exit
+    &mshell_exit,
+    &mshell_export,
 };
 
 int mshell_num_builtins(){
@@ -60,4 +63,20 @@ int mshell_help(char **args){
 
 int mshell_exit(char **args){
     return 0;
+}
+
+//added setenv var
+//usage (docs later): setenv NAME VALUE
+//must be a builtin because a child would set it in its own copy
+//environment and then exit, so shell wouldn't see change.
+int mshell_setenv(char **args){
+    if(args[1] == NULL || args[2] == NULL){
+        fprintf(stderr, "mshell: usage: setenv NAME VALUE\n");
+        return 1;
+    }
+
+    if(setenv(args[1], args[2], 1 != 0)){
+        perror("mshell: setenv");
+    }
+    return 1;
 }
