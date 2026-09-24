@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "shellCommands.h"
+#include "i_o_redir.h"
 #include "shellHelpFuncs.h"
 #include "shellFunc.h" 
 

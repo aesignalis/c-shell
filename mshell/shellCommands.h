@@ -11,7 +11,7 @@
 int mshell_cd(char **args);
 int mshell_help(char **args);
 int mshell_exit(char **args);
-int mshell_export(char **args);
+int mshell_setenv(char **args);
 
 char *builtin_str[] = {
     "cd",
@@ -26,7 +26,7 @@ int (*builtin_func[]) (char **) = {
     &mshell_cd,
     &mshell_help,
     &mshell_exit,
-    &mshell_export,
+    &mshell_setenv,
 };
 
 int mshell_num_builtins(){

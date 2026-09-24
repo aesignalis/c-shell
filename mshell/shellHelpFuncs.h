@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
 
 #pragma once
 
@@ -156,10 +157,23 @@ char **mshell_split_line(char *line){
 int mshell_launch(char **args){
     pid_t pid, wpid;
     int status;
+    mshell_redir redir;
+
+    if(mshell_parse_redirs(args, &redir) == -1){
+        fprintf(stderr, "mshell: syntax error near redirection\n");
+        return 1;
+    }
+    
+    if(args[0] == NULL){                   
+        fprintf(stderr, "mshell: missing command\n");
+        return 1;
+    }
+
 
     pid = fork();
     if(pid == 0){
         // child process
+        mshell_apply_redirs(&redir);
         if(execvp(args[0], args) == -1){
             perror("mshell");
         }
