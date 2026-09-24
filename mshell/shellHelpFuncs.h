@@ -177,12 +177,117 @@ int mshell_launch(char **args){
     return 1;
 }
 
+//adding pipes
+/* in order to avoid overwhelming hardcoding, we need a way to handle any pipeline typed by the user.
+the preexisting execvp(args[0], args), which is a variant of exec(), requires a NULL-terminated array for each command.
+we can put pipes in this by cutting args at | by overwriting it with NULL so that the pipe can know to stop earlier; otherwise, it continues till it hits natural NULL. this keeps each record of each command in the same array,
+with no copying. create N-1 for N commands, then fork N children, wire each one's stdin and stdout, close all pipe fds, and execvp.
+then, in the parent, close all pipe fds and wait for every child.
+pipe i connects command i (writes to pipefds[2*i+1] to command i+1 (reads pipefds[2*i]). so, command k reads from pipe k-1 and writes to pipe k, except the first has no input pipe
+and the last has no output pipe.)*/
+
+//runs a pipeline "ls -l | wc -1" args is the whole word list, ncmds = num cmds (number of | plus 1)
+int mshell_launch_pipeline(char **args, int ncmds){
+    char ***cmds = malloc(ncmds * sizeof(char**));
+    int *pipefds = malloc(2 * (ncmds - 1) * sizeof(int));
+    pid_t *pids = malloc(ncmds * sizeof(pid_t));
+    int k = 0;
+    int status;
+
+    if(!cmds||!pipefds||!pids){
+        fprintf(stderr, "mshell: allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    cmds[k++] = args;
+    for(int i=0; args[i] != NULL; i++){
+        if(strcmp(args[i], "|")==0){
+            args[i] = NULL;
+            cmds[k++] = &args[i+1];
+        }
+    }
+
+    for(k = 0; k < ncmds; k++){
+        if(cmds[k][0] == NULL){
+            fprintf(stderr, "mshell: syntax error near \"|\"\n");
+            free(cmds);
+            free(pipefds);
+            free(pids);
+            return 1;
+        }
+    }
+
+    for(int i = 0; i < ncmds - 1; i++){
+        if(pipe(&pipefds[2*i]) == -1){
+            perror("mshell");
+            for(int j = 0; j < 2*i; j++){
+                close(pipefds[j]);
+            }
+            free(cmds);
+            free(pipefds);
+            free(pids);
+            return 1;
+        }
+    }
+
+    for(k = 0; k < ncmds; k++){
+        pids[k] = fork();
+        if(pids[k] == 0){
+            if(k > 0 && dup2(pipefds[2*(k-1)], STDIN_FILENO) == -1){
+                perror("mshell");
+                exit(EXIT_FAILURE);
+            }
+
+            if(k < ncmds - 1 && dup2(pipefds[2*k + 1], STDOUT_FILENO) == -1){
+                perror("mshell");
+                exit(EXIT_FAILURE);
+            }
+
+            for(int j=0; j<2 * (ncmds - 1); j++){
+                close(pipefds[j]);
+            }
+
+            execvp(cmds[k][0], cmds[k]);
+            perror("mshell");
+            exit(EXIT_FAILURE);
+        }else if(pids[k]<0){
+            perror("mshell");
+        }
+    }
+
+    for(int j = 0; j < 2 * (ncmds - 1); j++){
+        close(pipefds[j]);
+    }
+    for(k = 0; k < ncmds; k++){
+        if(pids[k] > 0){
+            waitpid(pids[k], &status, 0);
+        }
+    }
+    free(cmds);
+    free(pipefds);
+    free(pids);
+    return 1;
+}
+
 int mshell_execute(char **args){
     if(args[0] == NULL){
         return 1;
     }
 
-    for(int i=0; i < mshell_num_builtins(); i++){
+    //count the commands
+    //every | adds one command
+    int ncmds = 1;
+    for(int i=0; args[i] != NULL; i++){
+        if(strcmp(args[i], "|") == 0){
+            ncmds++;
+        }
+    }
+
+    if(ncmds > 1){
+        return mshell_launch_pipeline(args, ncmds);
+    }
+
+    for(int i=0; i<mshell_num_builtins(); i++){
         if(strcmp(args[0], builtin_str[i])==0){
             return (*builtin_func[i])(args);
         }

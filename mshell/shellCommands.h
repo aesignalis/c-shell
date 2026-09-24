@@ -46,7 +46,7 @@ int mshell_cd(char **args){
 
 //basic help! based on my work on Go CLI flags!!
 int mshell_help(char **args){
-    printf("aesignalis personal project: mshell. based on Stephen Brennan's LSH guide!\n");
+    printf("aesignalis personal project: mshell. based on Stephen Brennan's LSH guide! ˚.⋆꒰১ ໒꒱⋆.˚\n");
     printf("Type program names and arguments, then hit enter.\n");
     printf("The following are built in:\n");
 
@@ -54,7 +54,7 @@ int mshell_help(char **args){
         printf(" %s\n", builtin_str[i]);
     }
 
-    printf("use the man command for information on other program.\n");
+    printf("use the man command for information on other programs.\n");
     return 1;
 }
 
